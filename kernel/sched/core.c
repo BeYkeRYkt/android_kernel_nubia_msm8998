@@ -3423,6 +3423,30 @@ struct preempt_store {
 
 static DEFINE_PER_CPU(struct preempt_store, the_ps);
 
+/*
+ * If the value passed in is equal to the current preempt count
+ * then we just disabled preemption. Start timing the latency.
+ */
+static inline void preempt_latency_start(int val)
+{
+	struct preempt_store *ps = &per_cpu(the_ps, raw_smp_processor_id());
+
+	if (preempt_count() == val) {
+		unsigned long ip = get_lock_parent_ip();
+#ifdef CONFIG_DEBUG_PREEMPT
+		current->preempt_disable_ip = ip;
+#endif
+		ps->ts = sched_clock();
+		ps->caddr[0] = CALLER_ADDR0;
+		ps->caddr[1] = CALLER_ADDR1;
+		ps->caddr[2] = CALLER_ADDR2;
+		ps->caddr[3] = CALLER_ADDR3;
+		ps->irqs_disabled = irqs_disabled();
+
+		trace_preempt_off(CALLER_ADDR0, ip);
+	}
+}
+
 void preempt_count_add(int val)
 {
 	struct preempt_store *ps = &per_cpu(the_ps, raw_smp_processor_id());
@@ -3442,23 +3466,33 @@ void preempt_count_add(int val)
 	DEBUG_LOCKS_WARN_ON((preempt_count() & PREEMPT_MASK) >=
 				PREEMPT_MASK - 10);
 #endif
-	if (preempt_count() == val) {
-		unsigned long ip = get_parent_ip(CALLER_ADDR1);
-#ifdef CONFIG_DEBUG_PREEMPT
-		current->preempt_disable_ip = ip;
-#endif
-		ps->ts = sched_clock();
-		ps->caddr[0] = CALLER_ADDR0;
-		ps->caddr[1] = CALLER_ADDR1;
-		ps->caddr[2] = CALLER_ADDR2;
-		ps->caddr[3] = CALLER_ADDR3;
-		ps->irqs_disabled = irqs_disabled();
-
-		trace_preempt_off(CALLER_ADDR0, ip);
-	}
+	preempt_latency_start(val);
 }
 EXPORT_SYMBOL(preempt_count_add);
 NOKPROBE_SYMBOL(preempt_count_add);
+
+/*
+ * If the value passed in equals to the current preempt count
+ * then we just enabled preemption. Stop timing the latency.
+ */
+static inline void preempt_latency_stop(int val)
+{
+	if (preempt_count() == val) {
+		struct preempt_store *ps = &per_cpu(the_ps,
+				raw_smp_processor_id());
+		u64 delta = sched_clock() - ps->ts;
+
+		/*
+		 * Trace preempt disable stack if preemption
+		 * is disabled for more than the threshold.
+		 */
+		if (delta > sysctl_preemptoff_tracing_threshold_ns)
+			trace_sched_preempt_disable(delta, ps->irqs_disabled,
+						ps->caddr[0], ps->caddr[1],
+						ps->caddr[2], ps->caddr[3]);
+		trace_preempt_on(CALLER_ADDR0, get_lock_parent_ip());
+	}
+}
 
 void preempt_count_sub(int val)
 {
@@ -3476,27 +3510,15 @@ void preempt_count_sub(int val)
 		return;
 #endif
 
-	if (preempt_count() == val) {
-		struct preempt_store *ps = &per_cpu(the_ps,
-				raw_smp_processor_id());
-		u64 delta = sched_clock() - ps->ts;
-
-		/*
-		 * Trace preempt disable stack if preemption
-		 * is disabled for more than the threshold.
-		 */
-		if (delta > sysctl_preemptoff_tracing_threshold_ns)
-			trace_sched_preempt_disable(delta, ps->irqs_disabled,
-						ps->caddr[0], ps->caddr[1],
-						ps->caddr[2], ps->caddr[3]);
-
-		trace_preempt_on(CALLER_ADDR0, get_parent_ip(CALLER_ADDR1));
-	}
+	preempt_latency_stop(val);
 	__preempt_count_sub(val);
 }
 EXPORT_SYMBOL(preempt_count_sub);
 NOKPROBE_SYMBOL(preempt_count_sub);
 
+#else
+static inline void preempt_latency_start(int val) { }
+static inline void preempt_latency_stop(int val) { }
 #endif
 
 /*
@@ -3827,8 +3849,23 @@ void __sched schedule_preempt_disabled(void)
 static void __sched notrace preempt_schedule_common(void)
 {
 	do {
+		/*
+		 * Because the function tracer can trace preempt_count_sub()
+		 * and it also uses preempt_enable/disable_notrace(), if
+		 * NEED_RESCHED is set, the preempt_enable_notrace() called
+		 * by the function tracer will call this function again and
+		 * cause infinite recursion.
+		 *
+		 * Preemption must be disabled here before the function
+		 * tracer can trace. Break up preempt_disable() into two
+		 * calls. One to disable preemption without fear of being
+		 * traced. The other to still record the preemption latency,
+		 * which can also be traced by the function tracer.
+		 */
 		preempt_disable_notrace();
+		preempt_latency_start(1);
 		__schedule(true);
+		preempt_latency_stop(1);
 		preempt_enable_no_resched_notrace();
 
 		/*
@@ -3880,7 +3917,21 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
 		return;
 
 	do {
+		/*
+		 * Because the function tracer can trace preempt_count_sub()
+		 * and it also uses preempt_enable/disable_notrace(), if
+		 * NEED_RESCHED is set, the preempt_enable_notrace() called
+		 * by the function tracer will call this function again and
+		 * cause infinite recursion.
+		 *
+		 * Preemption must be disabled here before the function
+		 * tracer can trace. Break up preempt_disable() into two
+		 * calls. One to disable preemption without fear of being
+		 * traced. The other to still record the preemption latency,
+		 * which can also be traced by the function tracer.
+		 */
 		preempt_disable_notrace();
+		preempt_latency_start(1);
 		/*
 		 * Needs preempt disabled in case user_exit() is traced
 		 * and the tracer calls preempt_enable_notrace() causing
@@ -3890,6 +3941,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
 		__schedule(true);
 		exception_exit(prev_ctx);
 
+		preempt_latency_stop(1);
 		preempt_enable_no_resched_notrace();
 	} while (need_resched());
 }
