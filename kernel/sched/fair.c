@@ -3676,7 +3676,7 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	int nice;
 	struct related_thread_group *grp;
 
-	if (p->state != TASK_RUNNING || p->nr_cpus_allowed == 1)
+	if (p->state != TASK_RUNNING || tsk_nr_cpus_allowed(p) == 1)
 		return 0;
 
 	/* No need to migrate task that is about to be throttled */
@@ -11937,7 +11937,7 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 
 	if (rq->misfit_task) {
 		if (rq->curr->state != TASK_RUNNING ||
-		    rq->curr->nr_cpus_allowed == 1)
+		    tsk_nr_cpus_allowed(rq->curr) == 1)
 			return;
 
 		new_cpu = select_energy_cpu_brute(p, cpu, 0);
