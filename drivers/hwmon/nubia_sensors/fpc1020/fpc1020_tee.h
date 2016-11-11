@@ -21,7 +21,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/input.h>
-#include <linux/wakelock.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/clk.h>
 #include <soc/qcom/scm.h>
@@ -58,7 +57,7 @@ struct fpc1020_data {
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
-	struct wake_lock ttw_wl;
+	struct wakeup_source ttw_wup;
 };
 
 static int fpc1020_request_named_gpio(struct fpc1020_data *fpc1020,	const char *label, int *gpio);

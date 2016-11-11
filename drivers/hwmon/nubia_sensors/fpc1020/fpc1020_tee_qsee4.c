@@ -171,8 +171,8 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 	struct fpc1020_data *fpc1020 = handle;
 	FPC_LOG_DEBUG("enter\n");
 	if (fpc1020->wakeup_enabled) {
-		wake_lock_timeout(&fpc1020->ttw_wl,
-					msecs_to_jiffies(FPC_TTW_HOLD_TIME));
+		__pm_wakeup_event(&fpc1020->ttw_wup,
+					FPC_TTW_HOLD_TIME);
 	}
 
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
@@ -320,7 +320,7 @@ static int fpc1020_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, fpc1020);
 	INIT_LIST_HEAD(&fpc1020->device_entry);
 	mutex_init(&fpc1020->lock);
-	wake_lock_init(&fpc1020->ttw_wl, WAKE_LOCK_SUSPEND, "fpc_ttw_wl");
+	wakeup_source_init(&fpc1020->ttw_wup, "fpc_ttw_wup");
 
 	/* parse device tree*/
 	rc = fpc1020_parse_dt(fpc1020);
