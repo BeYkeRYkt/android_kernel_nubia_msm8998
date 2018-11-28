@@ -6736,6 +6736,7 @@ static int sched_cpu_active(struct notifier_block *nfb,
 #endif
 		set_cpu_active(cpu, true);
 		stop_machine_unpark(cpu);
+		update_min_max_capacity();
 		return NOTIFY_OK;
 
 	case CPU_DOWN_FAILED:
@@ -6745,6 +6746,7 @@ static int sched_cpu_active(struct notifier_block *nfb,
 			atomic_inc(&sched_smt_present);
 #endif
 		set_cpu_active(cpu, true);
+		update_min_max_capacity();
 		return NOTIFY_OK;
 
 	default:
@@ -6765,6 +6767,7 @@ static int sched_cpu_inactive(struct notifier_block *nfb,
 		if (cpumask_weight(cpu_smt_mask((long)hcpu)) == 2)
 			atomic_dec(&sched_smt_present);
 #endif
+		update_min_max_capacity();
 		return NOTIFY_OK;
 
 	default:

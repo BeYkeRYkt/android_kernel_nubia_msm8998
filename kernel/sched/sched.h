@@ -1204,6 +1204,7 @@ extern void add_new_task_to_grp(struct task_struct *new);
 extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
 extern void update_avg_burst(struct task_struct *p);
 extern void update_avg(u64 *avg, u64 sample);
+extern void update_min_max_capacity(void);
 
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
@@ -1758,6 +1759,7 @@ static inline int alloc_related_thread_groups(void) { return 0; }
 #define trace_sched_cpu_load_wakeup(...)
 
 static inline void update_avg_burst(struct task_struct *p) {}
+static inline void update_min_max_capacity(void) { }
 
 #endif	/* CONFIG_SCHED_HMP */
 

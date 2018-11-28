@@ -237,7 +237,11 @@ static void __update_min_max_capacity(void)
 	int i;
 	int max_cap = 0, min_cap = INT_MAX;
 
-	for_each_online_cpu(i) {
+	for_each_possible_cpu(i) {
+
+		if (!cpu_active(i))
+			continue;
+
 		max_cap = max(max_cap, cpu_capacity(i));
 		min_cap = min(min_cap, cpu_capacity(i));
 	}
@@ -246,7 +250,7 @@ static void __update_min_max_capacity(void)
 	min_capacity = min_cap;
 }
 
-static void update_min_max_capacity(void)
+void update_min_max_capacity(void)
 {
 	unsigned long flags;
 	int i;
