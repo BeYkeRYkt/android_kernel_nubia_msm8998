@@ -3335,7 +3335,6 @@ static inline bool
 bias_to_waker_cpu(struct cpu_select_env *env, int cpu)
 {
 	return sysctl_sched_prefer_sync_wakee_to_waker &&
-	       cpu_rq(cpu)->nr_running == 1 &&
 	       cpumask_test_cpu(cpu, &env->search_cpus);
 }
 
