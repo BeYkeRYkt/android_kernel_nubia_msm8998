@@ -3419,8 +3419,27 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 retry:
 	cluster = select_least_power_cluster(&env);
 
-	if (!cluster)
+	if (!cluster) {
+		/*
+		 * Don't overload the previous CPU if it had already
+		 * more runnable tasks. Fallback to a CPU with lower
+		 * number of tasks.
+		 */
+		if (cpu_rq(target)->nr_running > 32) {
+			int i;
+			unsigned int best_nr = UINT_MAX;
+
+			for_each_cpu(i, cpu_active_mask) {
+				if (!cpumask_test_cpu(i, tsk_cpus_allowed(p)))
+					continue;
+				if (cpu_rq(i)->nr_running < best_nr) {
+					best_nr = cpu_rq(i)->nr_running;
+					target = i;
+				}
+			}
+		}
 		goto out;
+	}
 
 	/*
 	 * 'cluster' now points to the minimum power cluster which can satisfy
