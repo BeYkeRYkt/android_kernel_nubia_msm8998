@@ -322,7 +322,7 @@ static void play_effect(struct drv2605_data *pDrv2605data)
 		drv2605_change_mode(pDrv2605data, WORK_IDLE, DEV_STANDBY);
 		switch_set_state(&pDrv2605data->sw_dev, SW_STATE_IDLE);
 		pDrv2605data->vibrator_is_playing = NO;
-		wake_unlock(&pDrv2605data->wklock);
+		__pm_relax(&pDrv2605data->wakeup_source);
 	}
 }
 
@@ -334,7 +334,7 @@ static void play_Pattern_RTP(struct drv2605_data *pDrv2605data)
 			drv2605_change_mode(pDrv2605data, WORK_IDLE, DEV_STANDBY);
 			pDrv2605data->vibrator_is_playing = NO;
 			switch_set_state(&pDrv2605data->sw_dev, SW_STATE_IDLE);
-			wake_unlock(&pDrv2605data->wklock);
+			__pm_relax(&pDrv2605data->wakeup_source);
 		}else{
 			hrtimer_start(&pDrv2605data->timer, ns_to_ktime((u64)pDrv2605data->silience_time * NSEC_PER_MSEC), HRTIMER_MODE_REL);
 		}
@@ -361,7 +361,7 @@ static void play_Seq_RTP(struct drv2605_data *pDrv2605data)
 		drv2605_change_mode(pDrv2605data, WORK_IDLE, DEV_STANDBY);
 		pDrv2605data->vibrator_is_playing = NO;
 		switch_set_state(&pDrv2605data->sw_dev, SW_STATE_IDLE);
-		wake_unlock(&pDrv2605data->wklock);
+		__pm_relax(&pDrv2605data->wakeup_source);
 	}
 }
 
@@ -375,7 +375,7 @@ static void vibrator_off(struct drv2605_data *pDrv2605data)
 			drv2605_set_go_bit(pDrv2605data, STOP);
 			drv2605_change_mode(pDrv2605data, WORK_IDLE, DEV_STANDBY);
 			switch_set_state(&pDrv2605data->sw_dev, SW_STATE_IDLE);
-			wake_unlock(&pDrv2605data->wklock);
+			__pm_relax(&pDrv2605data->wakeup_source);
 		}
 	}
 }
@@ -425,7 +425,7 @@ static void vibrator_enable( struct timed_output_dev *dev, int value)
 
 	if (value > 0) {
 		if(pDrv2605data->audio_haptics_enabled == NO){
-			wake_lock(&pDrv2605data->wklock);
+			__pm_stay_awake(&pDrv2605data->wakeup_source);
 		}
 
 		drv2605_change_mode(pDrv2605data, WORK_VIBRATOR, DEV_READY);
@@ -551,7 +551,7 @@ static ssize_t dev2605_write(struct file* filp, const char* buff, size_t len, lo
 			//if (!copy_from_user(&pDrv2605data->sequence, &buff[1], len - 1))
 			//{
 				if(pDrv2605data->audio_haptics_enabled == NO){
-					wake_lock(&pDrv2605data->wklock);
+					__pm_stay_awake(&pDrv2605data->wakeup_source);
 				}
 				pDrv2605data->should_stop = NO;
 				drv2605_change_mode(pDrv2605data, WORK_SEQ_PLAYBACK, DEV_IDLE);
@@ -569,7 +569,7 @@ static ssize_t dev2605_write(struct file* filp, const char* buff, size_t len, lo
 			if (value > 0)
 			{
 			if(pDrv2605data->audio_haptics_enabled == NO){
-				wake_lock(&pDrv2605data->wklock);
+				__pm_stay_awake(&pDrv2605data->wakeup_source);
 			}
 			switch_set_state(&pDrv2605data->sw_dev, SW_STATE_RTP_PLAYBACK);
 			pDrv2605data->vibrator_is_playing = YES;
@@ -592,7 +592,7 @@ static ssize_t dev2605_write(struct file* filp, const char* buff, size_t len, lo
 
 			if(pDrv2605data->vibration_time > 0){
 				if(pDrv2605data->audio_haptics_enabled == NO){
-					wake_lock(&pDrv2605data->wklock);
+					__pm_stay_awake(&pDrv2605data->wakeup_source);
 				}
 				switch_set_state(&pDrv2605data->sw_dev, SW_STATE_RTP_PLAYBACK);
 				pDrv2605data->vibrator_is_playing = YES;
@@ -621,7 +621,7 @@ static ssize_t dev2605_write(struct file* filp, const char* buff, size_t len, lo
 					//}
 
 					if(pDrv2605data->audio_haptics_enabled == NO){
-						wake_lock(&pDrv2605data->wklock);
+						__pm_stay_awake(&pDrv2605data->wakeup_source);
 					}
 					switch_set_state(&pDrv2605data->sw_dev, SW_STATE_RTP_PLAYBACK);
 					drv2605_change_mode(pDrv2605data, WORK_SEQ_RTP_OFF, DEV_IDLE);
@@ -643,7 +643,7 @@ static ssize_t dev2605_write(struct file* filp, const char* buff, size_t len, lo
 		case HAPTIC_CMDID_AUDIOHAPTIC_ENABLE:
 		{
 			if(pDrv2605data->audio_haptics_enabled == NO){
-				wake_lock(&pDrv2605data->wklock);
+				__pm_stay_awake(&pDrv2605data->wakeup_source);
 			}
 			pDrv2605data->audio_haptics_enabled = YES;
 			setAudioHapticsEnabled(pDrv2605data, YES);
@@ -654,7 +654,7 @@ static ssize_t dev2605_write(struct file* filp, const char* buff, size_t len, lo
 		{
 			if(pDrv2605data->audio_haptics_enabled == YES){
 				pDrv2605data->audio_haptics_enabled = NO;
-				wake_unlock(&pDrv2605data->wklock);
+				__pm_relax(&pDrv2605data->wakeup_source);
 			}
 			break;
 		}
@@ -733,7 +733,7 @@ static int drv2605_suspend(struct device *dev){
 
 	drv2605_stop(pDrv2605data);
 	if(pDrv2605data->audio_haptics_enabled == YES){
-		wake_unlock(&pDrv2605data->wklock);
+		__pm_relax(&pDrv2605data->wakeup_source);
 	}
 
 	mutex_unlock(&pDrv2605data->lock);
@@ -745,7 +745,7 @@ static int  drv2605_resume(struct device *dev){
 
 	mutex_lock(&pDrv2605data->lock);
 	if(pDrv2605data->audio_haptics_enabled == YES){
-		wake_lock(&pDrv2605data->wklock);
+		__pm_stay_awake(&pDrv2605data->wakeup_source);
 		setAudioHapticsEnabled(pDrv2605data, YES);
 	}
 	mutex_unlock(&pDrv2605data->lock);
@@ -828,7 +828,7 @@ static int Haptics_init(struct drv2605_data *pDrv2605data)
 	pDrv2605data->timer.function = vibrator_timer_func;
 	INIT_WORK(&pDrv2605data->vibrator_work, vibrator_work_routine);
 
-	wake_lock_init(&pDrv2605data->wklock, WAKE_LOCK_SUSPEND, "vibrator");
+	wakeup_source_init(&pDrv2605data->wakeup_source, "vibrator");
 	mutex_init(&pDrv2605data->lock);
 
 	return 0;

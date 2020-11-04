@@ -34,7 +34,6 @@
 #include <linux/workqueue.h>
 #include <../../../drivers/staging/android/timed_output.h>
 #include <linux/hrtimer.h>
-#include <linux/wakelock.h>
 #include <linux/mutex.h>
 #include <linux/cdev.h>
 //#include <linux/earlysuspend.h>	//wxf
@@ -452,7 +451,7 @@ struct drv2605_data {
 
 	int OTP;
 
-	struct wake_lock wklock;
+	struct wakeup_source wakeup_source;
 	struct hrtimer timer;
 	struct mutex lock;
 	struct work_struct vibrator_work;
