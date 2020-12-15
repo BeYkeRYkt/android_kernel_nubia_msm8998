@@ -604,8 +604,15 @@ repeat:
 	spin_unlock_irq(&worker->lock);
 
 	if (work) {
+		kthread_work_func_t func = work->func;
 		__set_current_state(TASK_RUNNING);
+		trace_sched_kthread_work_execute_start(work);
 		work->func(work);
+		/*
+		 * Avoid dereferencing work after this point.  The trace
+		 * event only cares about the address.
+		 */
+		trace_sched_kthread_work_execute_end(work, func);
 	} else if (!freezing(current)) {
 		schedule();
 	} else {
@@ -641,6 +648,8 @@ static void insert_kthread_work(struct kthread_worker *worker,
 			       struct list_head *pos)
 {
 	lockdep_assert_held(&worker->lock);
+
+	trace_sched_kthread_work_queue_work(worker, work);
 
 	list_add_tail(&work->node, pos);
 	work->worker = worker;
