@@ -136,6 +136,13 @@ static inline int task_has_dl_policy(struct task_struct *p)
 }
 
 /*
+ * Shifting a value by an exponent greater *or equal* to the size of said value
+ * is UB; cap at size-1.
+ */
+#define shr_bound(val, shift)							\
+	(val >> min_t(typeof(shift), shift, BITS_PER_TYPE(typeof(val)) - 1))
+
+/*
  * Tells if entity @a should preempt entity @b.
  */
 static inline bool
