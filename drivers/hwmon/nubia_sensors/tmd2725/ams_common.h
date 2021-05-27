@@ -46,7 +46,6 @@ when         	who         		Remark : what, where, why          		version
 #include <linux/device.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
-#include <linux/wakelock.h>
 #include <linux/workqueue.h>
 #include <linux/uaccess.h>
 #include <linux/ioctl.h>
