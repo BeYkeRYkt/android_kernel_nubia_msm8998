@@ -3461,6 +3461,9 @@ void scheduler_tick(void)
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 
+	if (idle_cpu(cpu) && is_reserved(cpu))
+		clear_reserved(cpu);
+
 	if (cpu == tick_do_timer_cpu)
 		core_ctl_check(wallclock);
 }
