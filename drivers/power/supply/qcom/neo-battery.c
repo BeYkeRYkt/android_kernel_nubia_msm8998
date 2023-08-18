@@ -162,6 +162,7 @@ static enum power_supply_property neo_battery_properties[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
++	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 };
@@ -513,6 +514,20 @@ int neo_battery_get_batt_charge_full(struct neo_battery_data *chip,
 	return rc;
 }
 
+int neo_battery_get_batt_charge_full_design(struct neo_battery_data *chip,
+				     union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chip->bms_psy)
+		return -EINVAL;
+
+	rc = power_supply_get_property(chip->bms_psy,
+				       POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, val);
+	chip->param.batt_full_design = val->intval;
+	return rc;
+}
+
 int neo_battery_get_batt_charge_counter(struct neo_battery_data *chip,
 				     union power_supply_propval *val)
 {
@@ -579,6 +594,9 @@ static int neo_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		rc = neo_battery_get_batt_charge_full(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		rc = neo_battery_get_batt_charge_full_design(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		rc = neo_battery_get_batt_charge_counter(chip, val);
