@@ -41,12 +41,10 @@ when         	who         		Remark : what, where, why          		version
 #include <linux/device.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
-#include <linux/wakelock.h>
 #include <linux/workqueue.h>
 #include <linux/uaccess.h>
 #include <linux/ioctl.h>
 #include <asm/atomic.h>
-#include <linux/wakelock.h>
 
 
 #include <linux/regulator/consumer.h>
@@ -1129,8 +1127,8 @@ static void pa224_work_func_irq(struct work_struct *work)
 	data = container_of((struct work_struct *)work, struct pa224_data, irq_dwork);
 	client = data->client;
 	/* Add Oil Alg */
-	//wake_lock_timeout(&data->pa224_wake_lock, msecs_to_jiffies(1000));
-	wake_lock_timeout(&data->pa224_wake_lock, msecs_to_jiffies(100));
+	//__pm_wakeup_event(&data->pa224_wakeup, 1000);
+	__pm_wakeup_event(&data->pa224_wakeup, 100);
 	pa224_check_intr(client);
 }
 
@@ -1139,8 +1137,8 @@ static irqreturn_t pa224_irq(int irq, void *handle)
 	struct pa224_data *data = handle;
 	struct i2c_client *client = data->client;
 
-	//wake_lock_timeout(&data->pa224_wake_lock, msecs_to_jiffies(1000));
-	wake_lock_timeout(&data->pa224_wake_lock, msecs_to_jiffies(100));
+	//__pm_wakeup_event(&data->pa224_wakeup, 1000);
+	__pm_wakeup_event(&data->pa224_wakeup, 100);
 	pa224_check_intr(client);
 
 	return IRQ_HANDLED;
@@ -1626,7 +1624,7 @@ static int pa224_probe(struct i2c_client *client,
 		err = -ENOMEM;
 		goto exit_unregister_sensorclass;
 	}
-	wake_lock_init(&data->pa224_wake_lock, WAKE_LOCK_SUSPEND ,"pa224_wake_lock");
+	wakeup_source_init(&data->pa224_wakeup, "pa224_wakeup");
 	/*Device Initialize*/
 	err = pa224_init_client(client);
 	if (err < 0) {
@@ -1672,7 +1670,7 @@ input_dev_exit:
 		input_free_device(data->ps_input_dev);
 	}
 exit_unregister_sensorclass:
-	wake_lock_destroy(&data->pa224_wake_lock);
+	wakeup_source_trash(&data->pa224_wakeup);
 #ifdef SENSORS_CLASS_DEV
 	sensors_classdev_unregister(&data->ps_cdev);
 #endif
@@ -1705,7 +1703,7 @@ static int pa224_remove(struct i2c_client *client)
 	input_unregister_device(data->ps_input_dev);
 	input_free_device(data->ps_input_dev);
 	remove_sysfs_interfaces(dev);
-	wake_lock_destroy(&data->pa224_wake_lock);
+	wakeup_source_trash(&data->pa224_wakeup);
 	misc_deregister(&pa224_ps_device);
 
 	if (!PS_POLLING)

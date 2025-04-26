@@ -145,7 +145,7 @@ struct pa224_data {
 	struct delayed_work ps_dwork;
 	struct workqueue_struct *irq_work_queue;
 	struct work_struct irq_dwork;
-	struct wake_lock pa224_wake_lock;
+	struct wakeup_source pa224_wakeup;
 	unsigned int ps_poll_delay;
 	unsigned int ps_enable_delay;
 
