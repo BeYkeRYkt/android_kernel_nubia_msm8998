@@ -25,7 +25,6 @@
 #include <linux/err.h>
 #include <linux/of_gpio.h>
 #include <linux/pm_runtime.h>
-#include <linux/wakelock.h>
 #include <linux/list.h>
 
 #define MAGNETIC_DEVICE_NEAR		1
@@ -40,7 +39,7 @@ struct hall_device_irq {
 };
 
 struct hall_device_wake_lock {
-	struct wake_lock lock;
+	struct wakeup_source wake_src;
 	bool   locked;
 	char   *name;
 };

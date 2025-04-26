@@ -92,9 +92,13 @@ static void hall_device_wakelock_ops(struct hall_device_wake_lock *wakelock, boo
 	SENSOR_LOG_INFO("%s %s\n", enable ? "lock" : "unlock", wakelock->name);
 
 	if (enable)
-		wake_lock(&wakelock->lock);
+	{
+		__pm_stay_awake(&wakelock->wake_src);
+	}
 	else
-		wake_unlock(&wakelock->lock);
+	{
+		__pm_relax(&wakelock->wake_src);
+	}
 }
 
 static enum hrtimer_restart hall_device_unlock_wakelock_work_func(struct hrtimer *timer)
@@ -557,7 +561,7 @@ static int hall_device_probe(struct platform_device *pdev)
 
 	hall_device_disable_all_irq(chip);
 
-	wake_lock_init(&chip->wakeup_wakelock.lock, WAKE_LOCK_SUSPEND, chip->wakeup_wakelock.name);
+	wakeup_source_init(&chip->wakeup_wakelock.wake_src, chip->wakeup_wakelock.name);
 	hrtimer_init(&chip->unlock_wakelock_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	chip->unlock_wakelock_timer.function = hall_device_unlock_wakelock_work_func;
 
@@ -570,7 +574,7 @@ static int hall_device_probe(struct platform_device *pdev)
 	return 0;
 
 power_init_failed:
-	wake_lock_destroy(&chip->wakeup_wakelock.lock);
+	wakeup_source_trash(&chip->wakeup_wakelock.wake_src);
 	remove_sysfs_interfaces(chip->hall_device_dev);
 create_sysfs_failed:
 	input_unregister_device(chip->idev);
@@ -599,7 +603,7 @@ static int hall_device_remove(struct platform_device *pdev)
 	SENSOR_LOG_INFO("hall_device_remove\n");
 
 	hall_device_power_init(chip, 0);
-	wake_lock_destroy(&chip->wakeup_wakelock.lock);
+	wakeup_source_trash(&chip->wakeup_wakelock.wake_src);
 	remove_sysfs_interfaces(chip->hall_device_dev);
 	input_unregister_device(chip->idev);
 	hall_hw_device_deinit(chip);
