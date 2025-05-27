@@ -1595,22 +1595,6 @@ cpu_has_rt_task(int cpu)
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task, int sync);
 
-#ifdef CONFIG_SCHED_HMP
-static int
-select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
-{
-	int target;
-
-	rcu_read_lock();
-	target = find_lowest_rq(p, 0);
-	if (target != -1)
-		cpu = target;
-	rcu_read_unlock();
-
-	return cpu;
-}
-#endif
-
 /*
  * Return whether the task on the given cpu is currently non-preemptible
  * while handling a potentially long softint, or if the task is likely
@@ -1657,6 +1641,40 @@ static void schedtune_dequeue_rt(struct rq *rq, struct task_struct *p)
 	schedtune_dequeue_task(p, task_cpu(p));
 	cpufreq_update_this_cpu(rq, SCHED_CPUFREQ_RT);
 }
+
+#ifdef CONFIG_SCHED_HMP
+static int
+select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
+{
+	struct task_struct *tgt_task;
+	int target;
+
+	rcu_read_lock();
+	target = find_lowest_rq(p, 0);
+
+	/*
+	 * Check once for losing a race with the other core's irq handler.
+	 * This does not happen frequently, but it can avoid delaying
+	 * the execution of the RT task in those cases.
+	 */
+	if (target != -1) {
+		tgt_task = READ_ONCE(cpu_rq(target)->curr); /* unlocked access */
+		if (task_may_not_preempt(tgt_task, target))
+			target = find_lowest_rq(p, 0);
+	}
+
+	/*
+	* Possible race. Don't bother moving it if the
+	* destination CPU is not running a lower priority task.
+	*/
+	if (target != -1)
+		cpu = target;
+	*per_cpu_ptr(&incoming_rt_task, cpu) = true;
+	rcu_read_unlock();
+
+	return cpu;
+}
+#endif
 
 static int
 select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
